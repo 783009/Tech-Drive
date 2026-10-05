@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tech Drive Inventory Tracker</title>
     
-    <!-- Core Luckysheet & PapaParse Spreadsheet Engines -->
-    <link rel="stylesheet" href="https://jsdelivr.net" />
-    <link rel="stylesheet" href="https://jsdelivr.net" />
-    <link rel="stylesheet" href="https://jsdelivr.net" />
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
+    <!-- 1. Load basic parsing & layout engine prerequisites first -->
     <script src="https://cloudflare.com"></script>
+    <script src="https://jsdelivr.net"></script>
+
+    <!-- 2. Core Luckysheet Stylesheets -->
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    
+    <!-- 3. Core Luckysheet JavaScript Dependency Modules -->
+    <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans antialiased flex flex-col h-screen">
@@ -48,13 +52,19 @@
     </main>
 
     <script>
-        var DONATIONS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
+        var DONATIONS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=1591322061&single=true&output=csv";
         var REPAIRS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
 
         async function fetchSheetRows(url) {
             var response = await fetch(url + "&cachebust=" + new Date().getTime());
             if (!response.ok) throw new Error("Google Sheets engine rejected data pipe call.");
             var text = await response.text();
+            
+            // Explicit safe-check boundary wrapper for Papa library injection hooks
+            if (typeof Papa === "undefined") {
+                throw new Error("CSV data engine processing delay. Please refresh the page in 5 seconds.");
+            }
+            
             var parsed = Papa.parse(text, { skipEmptyLines: false });
             return parsed.data;
         }
@@ -64,7 +74,6 @@
             var rowGroups = [];
             var groupStart = -1;
 
-            // Generate precise matrix layout sizing metrics
             var rowCount = Math.max(rawData.length, 30);
             var colCount = 0;
             for (var r = 0; r < rawData.length; r++) {
@@ -74,14 +83,14 @@
 
             for (var r = 0; r < rawData.length; r++) {
                 var row = rawData[r];
+                if (!row) continue;
                 var rowStr = row.join("").trim();
 
-                // Dynamic row group parser tracking subheader offsets
                 if (rowStr.indexOf("Images") !== -1 || rowStr.indexOf("Repair Details") !== -1) {
                     if (groupStart === -1) {
                         groupStart = r;
                     }
-                } else if (groupStart !== -1 && row[0] && row[0].trim() !== "") {
+                } else if (groupStart !== -1 && rowStr !== "") {
                     rowGroups.push({ start: groupStart, end: r - 1 });
                     groupStart = -1;
                 }
@@ -101,7 +110,6 @@
                         }
                     };
 
-                    // Match theme styling for core tracking headers
                     if (val === "Tech Description" || val === "Tech Item" || val.indexOf("Tracker") !== -1 || val.indexOf("Workbench") !== -1) {
                         cellObj.v.bg = colorTheme;
                         cellObj.v.fc = "#ffffff";
@@ -155,7 +163,7 @@
                     title: "Tech Drive Assets Database",
                     lang: "en",
                     allowUpdate: false,
-                    allowEdit: false, // Prevents public altering, acts as a presentation layout viewer
+                    allowEdit: false, 
                     showinfobar: false,
                     showtoolbar: true,
                     showreport: false,
