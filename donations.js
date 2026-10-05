@@ -1,5 +1,5 @@
-var DONATIONS_CSV_URL = "https://google.com";
-var REPAIRS_CSV_URL = "https://google.com";
+var DONATIONS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=1591322061&single=true&output=csv";
+var REPAIRS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
 
 var activeTab = "donations";
 
