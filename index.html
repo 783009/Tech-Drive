@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tech Drive Inventory Tracker</title>
+    <!-- Load Tailwind CSS and the SheetJS Excel File Processing Engine -->
+    <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
     <style>
         .excel-table th, .excel-table td {
             border: 1px solid #e2e8f0;
-            padding: 8px 12px;
+            padding: 10px 14px;
             font-size: 13px;
         }
         .excel-table th {
@@ -25,21 +27,21 @@
         <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-xl font-bold tracking-tight">Tech Drive Tracker</h1>
-                <p class="text-blue-100 text-xs mt-0.5">Live Interactive Spreadsheet Viewer Dashboard</p>
+                <p class="text-blue-100 text-xs mt-0.5">Live Interactive Spreadsheet Grid</p>
             </div>
             <div class="text-xs bg-white/10 px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-xs">
-                实时同步激活 (点击行展开详情)
+                🟢 Live Excel Sync Active (Click rows to expand details)
             </div>
         </div>
     </header>
 
     <div class="max-w-7xl mx-auto w-full px-6 mt-6">
         <div class="flex border-b border-slate-200 bg-white rounded-t-xl shadow-xs overflow-hidden">
-            <button id="tab-donations" onclick="switchView('donations')" class="flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-blue-600 text-blue-600 bg-slate-50/50 cursor-pointer focus:outline-hidden">
-                📋 Donations Grid Tracker
+            <button id="tab-donations" onclick="switchTab(0)" class="flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-blue-600 text-blue-600 bg-slate-50/50 cursor-pointer focus:outline-hidden">
+                📋 Donations Tracker
             </button>
-            <button id="tab-repairs" onclick="switchView('repairs')" class="flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50 cursor-pointer focus:outline-hidden">
-                🛠️ Repairs Workbench Grid
+            <button id="tab-repairs" onclick="switchTab(1)" class="flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50 cursor-pointer focus:outline-hidden">
+                🛠️ Repairs Workbench
             </button>
         </div>
     </div>
@@ -49,7 +51,7 @@
             
             <div id="loading-overlay" class="absolute inset-0 bg-white/90 z-40 flex flex-col items-center justify-center transition-opacity duration-200">
                 <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
-                <p class="text-slate-500 text-sm font-medium">Streaming live database rows...</p>
+                <p class="text-slate-500 text-sm font-medium">Streaming live Excel workbook sheets...</p>
             </div>
 
             <div id="error-display" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm mb-4"></div>
@@ -61,136 +63,158 @@
         </div>
     </main>
     <script>
-        var DONATIONS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=1591322061&single=true&output=csv";
-        var REPAIRS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
+        var XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?output=xlsx";
+        
+        var workbookData = null;
+        var currentSheetIndex = 0;
 
-        var activeTab = "donations";
-        var cachedDonations = null;
-        var cachedRepairs = null;
-
-        function parseRawCSVText(text) {
-            var lines = []; var row = [""]; var inQuotes = false;
-            for (var i = 0; i < text.length; i++) {
-                var c = text[i]; var next = text[i+1];
-                if (c === '"') {
-                    if (inQuotes) { if (next === '"') { row[row.length - 1] += '"'; i++; } else { inQuotes = false; } }
-                    else { inQuotes = true; }
-                } else if (c === ',') { if (inQuotes) { row[row.length - 1] += c; } else { row.push(''); } }
-                else if (c === '\r' || c === '\n') {
-                    if (inQuotes) { row[row.length - 1] += c; }
-                    else { if (c === '\r') { if (next === '\n') { i++; } } lines.push(row); row = ['']; }
-                } else { row[row.length - 1] += c; }
-            }
-            if (row.length > 1 || row !== '') lines.push(row);
-            return lines;
-        }
-
-        async function fetchSpreadsheetRows(url) {
-            var response = await fetch(url + "&cachebust=" + new Date().getTime());
-            if (!response.ok) throw new Error("Google Sheets sync failure");
-            var text = await response.text();
-            return parseRawCSVText(text);
-        }
-
-        function toggleRowGroup(groupId) {
-            var targetRows = document.querySelectorAll(".group-" + groupId);
-            var triggerIcon = document.getElementById("icon-" + groupId);
+        function toggleGroup(id) {
+            var targetRows = document.querySelectorAll(".group-" + id);
+            var icon = document.getElementById("icon-" + id);
             targetRows.forEach(function(row) { row.classList.toggle("hidden"); });
-            if (triggerIcon) { triggerIcon.innerText = triggerIcon.innerText === "＋" ? "－" : "＋"; }
+            if (icon) { icon.innerText = icon.innerText === "＋" ? "－" : "＋"; }
         }
 
-        function getSafeValue(arr, index) {
-            if (!arr) return ""; var val = arr[index]; return val ? val.trim() : "";
+        function createCell(row, text, isHeader, colSpan) {
+            var cell = document.createElement(isHeader ? "th" : "td");
+            if (colSpan) cell.setAttribute("colspan", colSpan);
+            cell.innerText = text || "";
+            row.appendChild(cell);
+            return cell;
         }
 
-        function renderDonationsView(rows) {
+        function renderDonations(sheet) {
             var table = document.getElementById("data-table"); table.innerHTML = "";
-            var headerRow = document.createElement("tr");
-            headerRow.innerHTML = "<th></th><th>Tech Description</th><th>Donor Name</th><th>Lifecycle Status</th><th>Value Realized ($)</th><th>Image Link 1</th><th>Image Link 2</th><th>Image Link 3</th>";
-            table.appendChild(headerRow);
-            var currentGroupId = 0;
+            var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            
+            var headerTr = document.createElement("tr");
+            headerTr.innerHTML = "<th></th><th>Tech Description</th><th>Donor Name</th><th>Lifecycle Status</th><th>Value Realized ($)</th><th>Image Attached</th>";
+            table.appendChild(headerTr);
 
+            var groupId = 0;
             for (var r = 1; r < rows.length; r++) {
-                var rowData = rows[r]; if (!rowData) continue;
-                var desc = getSafeValue(rowData, 0); var donor = getSafeValue(rowData, 1); var status = getSafeValue(rowData, 2);
-                var value = getSafeValue(rowData, 3); var img1 = getSafeValue(rowData, 4); var img2 = getSafeValue(rowData, 5); var img3 = getSafeValue(rowData, 6);
-                if (desc === "" && donor === "" && status === "") continue;
+                var rowData = rows[r]; if (!rowData || rowData.length === 0) continue;
+                var desc = String(rowData[0] || "").trim();
+                var donor = String(rowData[1] || "").trim();
+                var status = String(rowData[2] || "").trim();
+                var val = String(rowData[3] || "").trim();
+                var img = String(rowData[4] || "").trim();
 
+                if (!desc && !donor && !status) continue;
                 var tr = document.createElement("tr");
-                var isDetailRow = (desc.indexOf("Images") !== -1 || desc.indexOf("Details") !== -1 || (desc === "" && (img1 !== "" || img2 !== "" || img3 !== "")));
 
-                if (isDetailRow) {
-                    tr.className = "bg-slate-50/70 font-mono text-xs text-slate-500 group-" + currentGroupId + " hidden";
-                    tr.innerHTML = "<td></td><td colspan='3' class='italic text-slate-600'>" + desc + "</td><td colspan='4'>" +
-                        (img1 ? "<a href='" + img1 + "' target='_blank' class='text-blue-600 underline mr-4'>[Image 1]</a>" : "") +
-                        (img2 ? "<a href='" + img2 + "' target='_blank' class='text-blue-600 underline mr-4'>[Image 2]</a>" : "") +
-                        (img3 ? "<a href='" + img3 + "' target='_blank' class='text-blue-600 underline'>[Image 3]</a>" : "") + "</td>";
+                if (desc.indexOf("Images") !== -1 || desc.indexOf("Details") !== -1 || (!desc && img)) {
+                    tr.className = "bg-slate-50/70 font-mono text-xs text-slate-500 group-" + groupId + " hidden";
+                    createCell(tr, "");
+                    var dCell = createCell(tr, desc || "Details:", false, "3");
+                    dCell.className = "italic text-slate-600";
+                    var lCell = document.createElement("td"); lCell.setAttribute("colspan", "2");
+                    if (img && img.indexOf("http") === 0) {
+                        lCell.innerHTML = "<a href='"+img+"' target='_blank' class='text-blue-600 underline font-semibold'>[View Asset Image Link]</a>";
+                    } else { lCell.innerText = img || "No files uploaded"; }
+                    tr.appendChild(lCell);
                 } else {
-                    currentGroupId++; tr.className = "hover:bg-slate-50 cursor-pointer font-medium text-slate-900 border-t-2 border-slate-100";
-                    tr.setAttribute("onclick", "toggleRowGroup(" + currentGroupId + ")");
-                    var badgeBg = (status.indexOf("Sold") !== -1) ? "bg-green-100 text-green-800" : (status.indexOf("E-Waste") !== -1) ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
-                    tr.innerHTML = "<td class='text-center font-bold text-blue-600 select-none' style='width:40px;' id='icon-" + currentGroupId + "'>＋</td>" +
-                        "<td class='font-semibold'>" + desc + "</td><td>" + donor + "</td><td><span class='px-2.5 py-0.5 text-xs font-semibold rounded-full " + badgeBg + "'>" + status + "</span></td>" +
-                        "<td class='font-mono font-bold'>" + value + "</td><td>" + (img1 ? "🔗 Link" : "") + "</td><td>" + (img2 ? "🔗 Link" : "") + "</td><td>" + (img3 ? "🔗 Link" : "") + "</td>";
+                    groupId++; tr.className = "hover:bg-slate-50 cursor-pointer font-medium text-slate-900 border-t-2 border-slate-100";
+                    tr.setAttribute("onclick", "toggleGroup(" + groupId + ")");
+                    var c0 = createCell(tr, "＋", false); c0.className = "text-center font-bold text-blue-600 select-none w-10"; c0.id = "icon-" + groupId;
+                    var c1 = createCell(tr, desc, false); c1.className = "font-semibold";
+                    createCell(tr, donor, false);
+                    var c3 = document.createElement("td");
+                    var bColor = status.indexOf("Sold") !== -1 ? "bg-green-100 text-green-800" : status.indexOf("E-Waste") !== -1 ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
+                    c3.innerHTML = "<span class='px-2.5 py-0.5 text-xs font-semibold rounded-full " + bColor + "'>" + status + "</span>";
+                    tr.appendChild(c3);
+                    createCell(tr, val, false);
+                    createCell(tr, img ? "🔗 Available" : "", false);
                 }
                 table.appendChild(tr);
             }
         }
 
-        function renderRepairsView(rows) {
+        function renderRepairs(sheet) {
             var table = document.getElementById("data-table"); table.innerHTML = "";
-            var headerRow = document.createElement("tr");
-            headerRow.innerHTML = "<th></th><th>Tech Item</th><th>Client Name</th><th>Issue</th><th>Repair Status</th><th>Amount Earned</th><th>Total Profit</th><th>Image Link 1</th>";
-            table.appendChild(headerRow);
-            var currentGroupId = 0;
+            var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            
+            var headerTr = document.createElement("tr");
+            headerTr.innerHTML = "<th></th><th>Tech Item</th><th>Client Name</th><th>Issue Description</th><th>Repair Status</th><th>Earned</th><th>Profit</th>";
+            table.appendChild(headerTr);
 
+            var groupId = 0;
             for (var r = 1; r < rows.length; r++) {
-                var rowData = rows[r]; if (!rowData) continue;
-                var item = getSafeValue(rowData, 0); var client = getSafeValue(rowData, 1); var issue = getSafeValue(rowData, 2);
-                var status = getSafeValue(rowData, 3); var earned = getSafeValue(rowData, 4); var profit = getSafeValue(rowData, 5); var img1 = getSafeValue(rowData, 6);
+                var rowData = rows[r]; if (!rowData || rowData.length === 0) continue;
+                var item = String(rowData[0] || "").trim();
+                var client = String(rowData[1] || "").trim();
+                var issue = String(rowData[2] || "").trim();
+                var status = String(rowData[3] || "").trim();
+                var earned = String(rowData[4] || "").trim();
+                var profit = String(rowData[5] || "").trim();
+
                 if (item.indexOf("Paid Repairs") !== -1 || item.indexOf("Tech Item") !== -1) continue;
-                if (item === "" && client === "" && issue === "") continue;
-
+                if (!item && !client && !issue) continue;
                 var tr = document.createElement("tr");
-                var isDetailRow = (item.indexOf("Repair Details") !== -1 || item.indexOf("Images") !== -1 || (client === "" && issue === ""));
 
-                if (isDetailRow) {
-                    tr.className = "bg-amber-50/30 text-xs text-slate-600 group-" + currentGroupId + " hidden";
-                    tr.innerHTML = "<td></td><td colspan='3' class='whitespace-pre-wrap p-4 bg-slate-50 rounded-lg border border-slate-100 leading-relaxed font-mono'>" + item + "</td><td colspan='4'>" +
-                        (img1 ? "<a href='" + img1 + "' target='_blank' class='text-indigo-600 underline font-semibold'>[Attached Repair Image Link]</a>" : "<span class='text-slate-400 italic'>No images uploaded</span>") + "</td>";
+                if (item.indexOf("Repair Details") !== -1 || item.indexOf("Images") !== -1 || (!client && !issue)) {
+                    tr.className = "bg-amber-50/20 text-xs text-slate-600 group-" + groupId + " hidden";
+                    createCell(tr, "");
+                    var dCell = createCell(tr, item, false, "3");
+                    dCell.className = "whitespace-pre-wrap p-4 bg-slate-50 rounded-lg border border-slate-100 leading-relaxed font-mono";
+                    var lCell = createCell(tr, "No images uploaded", false, "3"); lCell.className = "text-slate-400 italic";
+                    if (rowData[7] && String(rowData[7]).indexOf("http") === 0) {
+                        lCell.className = ""; lCell.innerHTML = "<a href='"+rowData[7]+"' target='_blank' class='text-indigo-600 underline font-semibold'>[Attached Fix Photo]</a>";
+                    }
                 } else {
-                    currentGroupId++; tr.className = "hover:bg-slate-50 cursor-pointer font-medium text-slate-900 border-t-2 border-slate-100";
-                    tr.setAttribute("onclick", "toggleRowGroup(" + currentGroupId + ")");
-                    var badgeBg = (status.indexOf("Fixed") !== -1) ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800";
-                    tr.innerHTML = "<td class='text-center font-bold text-indigo-600 select-none' style='width:40px;' id='icon-" + currentGroupId + "'>＋</td>" +
-                        "<td class='font-semibold'>" + item + "</td><td>" + client + "</td><td class='max-w-xs truncate text-slate-500' title='" + issue + "'>" + issue + "</td>" +
-                        "<td><span class='px-2.5 py-0.5 text-xs font-semibold rounded-full " + badgeBg + "'>" + status + "</span></td>" +
-                        "<td class='font-mono text-emerald-700 font-bold'>" + earned + "</td><td class='font-mono font-bold text-slate-600'>" + profit + "</td><td>" + (img1 ? "🔗 Asset Link" : "") + "</td>";
+                    groupId++; tr.className = "hover:bg-slate-50 cursor-pointer font-medium text-slate-900 border-t-2 border-slate-100";
+                    tr.setAttribute("onclick", "toggleGroup(" + groupId + ")");
+                    var c0 = createCell(tr, "＋", false); c0.className = "text-center font-bold text-indigo-600 select-none w-10"; c0.id = "icon-" + groupId;
+                    var c1 = createCell(tr, item, false); c1.className = "font-semibold";
+                    createCell(tr, client, false);
+                    var c3 = createCell(tr, issue, false); c3.className = "max-w-xs truncate text-slate-500"; c3.title = issue;
+                    var c4 = document.createElement("td");
+                    var bColor = status.indexOf("Fixed") !== -1 ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800";
+                    c4.innerHTML = "<span class='px-2.5 py-0.5 text-xs font-semibold rounded-full " + bColor + "'>" + status + "</span>";
+                    tr.appendChild(c4);
+                    createCell(tr, earned, false);
+                    createCell(tr, profit, false);
                 }
                 table.appendChild(tr);
             }
         }
 
-        async function initDashboardCore() {
-            var overlay = document.getElementById("loading-overlay"); var errorBanner = document.getElementById("error-display");
+        async function initExcelEngine() {
+            var overlay = document.getElementById("loading-overlay");
+            var errorBanner = document.getElementById("error-display");
             try {
-                if (!cachedDonations) cachedDonations = await fetchSpreadsheetRows(DONATIONS_URL);
-                if (!cachedRepairs) cachedRepairs = await fetchSpreadsheetRows(REPAIRS_URL);
-                if (activeTab === "donations") { renderDonationsView(cachedDonations); } else { renderRepairsView(cachedRepairs); }
+                var res = await fetch(XLSX_URL + "&cb=" + new Date().getTime());
+                if (!res.ok) throw new Error("Google spreadsheet feed connection failed");
+                var arrayBuffer = await res.arrayBuffer();
+                var data = new Uint8Array(arrayBuffer);
+                workbookData = XLSX.read(data, { type: "array" });
+                
+                switchTab(currentSheetIndex);
                 overlay.classList.add("hidden");
-            } catch (err) { overlay.classList.add("hidden"); errorBanner.innerText = "Live Tracker Feed Offline: " + err.message; errorBanner.classList.remove("hidden"); }
+            } catch (err) {
+                overlay.classList.add("hidden");
+                errorBanner.innerText = "Excel Engine Loader Error: " + err.message;
+                errorBanner.classList.remove("hidden");
+            }
         }
 
-        function switchView(targetTab) {
-            activeTab = targetTab; var donBtn = document.getElementById("tab-donations"); var repBtn = document.getElementById("tab-repairs");
-            if (targetTab === "donations") {
+        function switchTab(index) {
+            currentSheetIndex = index;
+            var donBtn = document.getElementById("tab-donations");
+            var repBtn = document.getElementById("tab-repairs");
+            
+            if (index === 0) {
                 donBtn.className = "flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-blue-600 text-blue-600 bg-slate-50/50 cursor-pointer focus:outline-hidden";
                 repBtn.className = "flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50 cursor-pointer focus:outline-hidden";
+                if (workbookData) renderDonations(workbookData.Sheets[workbookData.SheetNames[0]]);
             } else {
                 repBtn.className = "flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-indigo-600 text-indigo-600 bg-slate-50/50 cursor-pointer focus:outline-hidden";
                 donBtn.className = "flex-1 py-3.5 px-6 text-center font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50 cursor-pointer focus:outline-hidden";
-                }
-if (cachedDonations && cachedRepairs) { if (activeTab === "donations") { renderDonationsView(cachedDonations); } else { renderRepairsView(cachedRepairs); } } else { initDashboardCore(); }
-}
-document.addEventListener("DOMContentLoaded", initDashboardCore);
-        
+                if (workbookData) renderRepairs(workbookData.Sheets[workbookData.SheetNames[1]]);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", initExcelEngine);
+    </script>
+</body>
+</html>
