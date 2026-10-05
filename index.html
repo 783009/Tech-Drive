@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Drive Inventory Tracker</title>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        details summary::-webkit-details-marker { display: none; }
+        details summary { list-style: none; }
+        details[open] summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Tech Drive Workbench</h1>
+                <p class="text-blue-100 text-sm mt-0.5">Live Donations Tracker & Paid Repairs Log</p>
+            </div>
+            <div class="text-xs bg-white/10 px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-xs">
+                🟢 Syncing live with Google Sheets
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 mt-6">
+        <div class="flex border-b border-gray-200 bg-white rounded-t-lg shadow-xs overflow-hidden">
+            <button id="tab-donations" onclick="switchTab('donations')" class="flex-1 py-4 px-6 text-center font-medium border-b-2 border-blue-600 text-blue-600 bg-gray-50/50 transition-all cursor-pointer focus:outline-hidden">
+                📋 Donations Tracker
+            </button>
+            <button id="tab-repairs" onclick="switchTab('repairs')" class="flex-1 py-4 px-6 text-center font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 transition-all cursor-pointer focus:outline-hidden">
+                🛠️ Repairs Workbench
+            </button>
+        </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 mb-12">
+        <div class="bg-white p-6 rounded-b-lg shadow-sm border-x border-b border-gray-100">
+            <div id="loading" class="flex flex-col items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
+                <p class="text-gray-500 text-sm">Fetching live updates from database...</p>
+            </div>
+
+            <div id="error-banner" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4"></div>
+
+            <div id="view-container" class="space-y-3 hidden"></div>
+        </div>
+    </main>
+
+    <!-- Connect our modular code segments together seamlessly -->
+    <script src="donations.js"></script>
+    <script src="repairs.js"></script>
+</body>
+</html>
