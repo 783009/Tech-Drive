@@ -4,84 +4,178 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tech Drive Inventory Tracker</title>
-    <!-- Tailwind CSS for clean framing context styling -->
+    
+    <!-- Core Luckysheet & PapaParse Spreadsheet Engines -->
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    <link rel="stylesheet" href="https://jsdelivr.net" />
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://cloudflare.com"></script>
     <script src="https://jsdelivr.net"></script>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans antialiased">
+<body class="bg-gray-100 text-gray-800 font-sans antialiased flex flex-col h-screen">
 
-    <!-- Header Frame -->
-    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <!-- Header Frame Bar -->
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md shrink-0">
+        <div class="max-w-full mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-                <h1 class="text-xl font-bold tracking-tight">Tech Drive Workbench</h1>
-                <p class="text-blue-100 text-xs mt-0.5">Interactive Spreadsheet Grid Dashboard Viewer</p>
+                <h1 class="text-xl font-bold tracking-tight">Tech Drive Inventory Tracker</h1>
+                <p class="text-blue-100 text-xs mt-0.5">Pixel-Perfect Interactive Spreadsheet Grid Dashboard</p>
             </div>
             <div class="text-xs bg-white/10 px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-xs">
-                🟢 Direct live link connection active
+                🟢 Live Sync Active (Viewers Can Expand/Collapse Groups)
             </div>
         </div>
     </header>
 
-    <!-- Navigation Tab Layout -->
-    <div class="max-w-7xl mx-auto px-4 mt-6">
-        <div class="flex border-b border-gray-200 bg-white rounded-t-lg shadow-xs overflow-hidden">
-            <button id="tab-donations" onclick="switchView('donations')" class="flex-1 py-3 px-6 text-center font-medium border-b-2 border-blue-600 text-blue-600 bg-gray-50/50 cursor-pointer focus:outline-hidden">
-                📋 Donations Grid Tracker
-            </button>
-            <button id="tab-repairs" onclick="switchView('repairs')" class="flex-1 py-3 px-6 text-center font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 cursor-pointer focus:outline-hidden">
-                🛠️ Repairs Workbench Grid
-            </button>
-        </div>
-    </div>
-
-    <!-- Live Excel Clone Embedded Viewing Frames -->
-    <main class="max-w-7xl mx-auto px-4 mb-12">
-        <div class="bg-white rounded-b-lg shadow-md border-x border-b border-gray-200 overflow-hidden">
+    <!-- Spreadsheet Display Workarea Grid -->
+    <main class="flex-grow p-4 min-h-0">
+        <div class="w-full h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative">
             
-            <!-- Donations Sheet Embedded Frame Container -->
-            <div id="frame-donations" class="w-full h-[75vh]">
-                <iframe 
-                    src="https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=1591322061&single=true&output=csv" 
-                    class="w-full h-full border-0">
-                </iframe>
+            <!-- Loading Workarea Overlay -->
+            <div id="loading-overlay" class="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center transition-opacity duration-300">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
+                <p class="text-gray-600 font-medium text-sm">Generating live Excel workbook sheets...</p>
             </div>
 
-            <!-- Repairs Sheet Embedded Frame Container -->
-            <div id="frame-repairs" class="w-full h-[75vh] hidden">
-                <iframe 
-                    src="https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv" 
-                    class="w-full h-full border-0">
-                </iframe>
-            </div>
+            <!-- Error Banner -->
+            <div id="error-display" class="hidden absolute top-4 inset-x-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm z-50"></div>
 
+            <!-- Primary Luckysheet Workbook Mount Node -->
+            <div id="luckysheet-canvas" class="w-full h-full"></div>
         </div>
     </main>
 
     <script>
-        function switchView(targetView) {
-            var donBtn = document.getElementById("tab-donations");
-            var repBtn = document.getElementById("tab-repairs");
-            var donFrame = document.getElementById("frame-donations");
-            var repFrame = document.getElementById("frame-repairs");
+        var DONATIONS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
+        var REPAIRS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdTZiFaDCSnV4D7_C1OvYZQuhM89ZTPOZ5OkEAg770NbBGa7F7Vl17ZkDjr6gUOlw97WwiquUaK5o2/pub?gid=2051051474&single=true&output=csv";
 
-            if (targetView === "donations") {
-                // Style Active Tab Action Styling
-                donBtn.className = "flex-1 py-3 px-6 text-center font-medium border-b-2 border-blue-600 text-blue-600 bg-gray-50/50 cursor-pointer focus:outline-hidden";
-                repBtn.className = "flex-1 py-3 px-6 text-center font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 cursor-pointer focus:outline-hidden";
-                
-                // Show Framework Frame Panel Selection Node Bounds
-                donFrame.classList.remove("hidden");
-                repFrame.classList.add("hidden");
-            } else {
-                // Style Active Tab Action Styling
-                repBtn.className = "flex-1 py-3 px-6 text-center font-medium border-b-2 border-indigo-600 text-indigo-600 bg-gray-50/50 cursor-pointer focus:outline-hidden";
-                donBtn.className = "flex-1 py-3 px-6 text-center font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 cursor-pointer focus:outline-hidden";
-                
-                // Show Framework Frame Panel Selection Node Bounds
-                repFrame.classList.remove("hidden");
-                donFrame.classList.add("hidden");
+        async function fetchSheetRows(url) {
+            var response = await fetch(url + "&cachebust=" + new Date().getTime());
+            if (!response.ok) throw new Error("Google Sheets engine rejected data pipe call.");
+            var text = await response.text();
+            var parsed = Papa.parse(text, { skipEmptyLines: false });
+            return parsed.data;
+        }
+
+        function transformToLuckysheet(rawData, sheetName, colorTheme) {
+            var celldata = [];
+            var rowGroups = [];
+            var groupStart = -1;
+
+            // Generate precise matrix layout sizing metrics
+            var rowCount = Math.max(rawData.length, 30);
+            var colCount = 0;
+            for (var r = 0; r < rawData.length; r++) {
+                if (rawData[r].length > colCount) colCount = rawData[r].length;
+            }
+            if (colCount < 12) colCount = 12;
+
+            for (var r = 0; r < rawData.length; r++) {
+                var row = rawData[r];
+                var rowStr = row.join("").trim();
+
+                // Dynamic row group parser tracking subheader offsets
+                if (rowStr.indexOf("Images") !== -1 || rowStr.indexOf("Repair Details") !== -1) {
+                    if (groupStart === -1) {
+                        groupStart = r;
+                    }
+                } else if (groupStart !== -1 && row[0] && row[0].trim() !== "") {
+                    rowGroups.push({ start: groupStart, end: r - 1 });
+                    groupStart = -1;
+                }
+
+                for (var c = 0; c < row.length; c++) {
+                    var val = row[c] ? row[c].trim() : "";
+                    if (val === "") continue;
+
+                    var cellObj = {
+                        r: r,
+                        c: c,
+                        v: {
+                            v: val,
+                            m: val,
+                            ct: { fa: "@", t: "s" },
+                            bg: "#ffffff"
+                        }
+                    };
+
+                    // Match theme styling for core tracking headers
+                    if (val === "Tech Description" || val === "Tech Item" || val.indexOf("Tracker") !== -1 || val.indexOf("Workbench") !== -1) {
+                        cellObj.v.bg = colorTheme;
+                        cellObj.v.fc = "#ffffff";
+                        cellObj.v.bl = 1;
+                    } else if (val === "Images" || val === "Repair Details") {
+                        cellObj.v.bg = "#f8fafc";
+                        cellObj.v.fc = "#64748b";
+                        cellObj.v.bl = 1;
+                    } else if (val.indexOf("http") === 0) {
+                        cellObj.v.fc = "#1d4ed8";
+                        cellObj.v.un = 1;
+                    }
+
+                    celldata.push(cellObj);
+                }
+            }
+
+            if (groupStart !== -1) {
+                rowGroups.push({ start: groupStart, end: rawData.length - 1 });
+            }
+
+            return {
+                name: sheetName,
+                color: colorTheme,
+                status: sheetName === "Donations Tracker" ? 1 : 0,
+                order: sheetName === "Donations Tracker" ? 0 : 1,
+                row: rowCount,
+                column: colCount,
+                celldata: celldata,
+                rowgroup: rowGroups,
+                config: {
+                    rowReadOnly: {},
+                    colReadOnly: {}
+                }
+            };
+        }
+
+        async function initSpreadsheetCore() {
+            var overlay = document.getElementById("loading-overlay");
+            var errorBanner = document.getElementById("error-display");
+
+            try {
+                var donationsRaw = await fetchSheetRows(DONATIONS_URL);
+                var repairsRaw = await fetchSheetRows(REPAIRS_URL);
+
+                var donationsSheet = transformToLuckysheet(donationsRaw, "Donations Tracker", "#1d4ed8");
+                var repairsSheet = transformToLuckysheet(repairsRaw, "Repairs Workbench", "#4f46e5");
+
+                luckysheet.create({
+                    container: "luckysheet-canvas",
+                    title: "Tech Drive Assets Database",
+                    lang: "en",
+                    allowUpdate: false,
+                    allowEdit: false, // Prevents public altering, acts as a presentation layout viewer
+                    showinfobar: false,
+                    showtoolbar: true,
+                    showreport: false,
+                    showsheetbar: true,
+                    showstatisticBar: true,
+                    enableAddRow: false,
+                    sheetFormulaBar: true,
+                    data: [donationsSheet, repairsSheet]
+                });
+
+                overlay.style.opacity = "0";
+                setTimeout(function() { overlay.classList.add("hidden"); }, 300);
+            } catch (err) {
+                overlay.classList.add("hidden");
+                errorBanner.innerText = "Workbook Engine Initialization Error: " + err.message;
+                errorBanner.classList.remove("hidden");
             }
         }
+
+        document.addEventListener("DOMContentLoaded", initSpreadsheetCore);
     </script>
 </body>
 </html>
